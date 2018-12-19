@@ -86,6 +86,11 @@ class CyborgException(Exception):
         return unicode(self.args[0])
 
 
+class ARQInvalidState(CyborgException):
+    _msg_fmt = _("Accelerator Requests cannot be requested with "
+                 "state %(state)s.")
+
+
 class AttachHandleAlreadyExists(CyborgException):
     _msg_fmt = _("AttachHandle with uuid %(uuid)s already exists.")
 
@@ -106,12 +111,29 @@ class DeviceProfileAlreadyExists(CyborgException):
     _msg_fmt = _("DeviceProfile with uuid %(uuid)s already exists.")
 
 
+class DeviceProfileNameNotFound(CyborgException):
+    _msg_fmt = _("DeviceProfile with name %(name)s not found.")
+
+
+class DeviceProfileNameNeeded(CyborgException):
+    _msg_fmt = _("DeviceProfile name needed.")
+
+
 class DeployableAlreadyExists(CyborgException):
     _msg_fmt = _("Deployable with uuid %(uuid)s already exists.")
 
 
 class ExtArqAlreadyExists(CyborgException):
     _msg_fmt = _("ExtArq with uuid %(uuid)s already exists.")
+
+
+class ExpectedOneObject(CyborgException):
+    _msg_fmt = _("Expected one object of type %(obj)s "
+                 "but got %(count)s.")
+
+
+class InUse(CyborgException):
+    _msg_fmt = _("%(object) with %(ident)s is in use.")
 
 
 class Invalid(CyborgException):
@@ -135,6 +157,10 @@ class InvalidJsonType(Invalid):
 # msg needs to be constructed when raised.
 class InvalidParameterValue(Invalid):
     _msg_fmt = _("%(err)s")
+
+
+class NeedAtleastOne(Invalid):
+    _msg_fmt = _("Need at least one %(obj)s.")
 
 
 class PatchError(Invalid):

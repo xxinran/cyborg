@@ -13,15 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
-CONDUCTOR_TOPIC = 'cyborg-conductor'
-AGENT_TOPIC = 'cyborg-agent'
-DEVICE_GPU = 'GPU'
-DEVICE_FPGA = 'FPGA'
+from cyborg.tests.unit.api import base
 
 
-ARQ_STATES = (ARQ_INITIAL, ARQ_BOUND, ARQ_UNBOUND, ARQ_BIND_FAILED) = \
-    ('Initial', 'Bound', 'Unbound', 'BindFailed')
+class APITestV2(base.BaseApiTest):
 
-# Device type
-DEVICE_TYPE = (DEVICE_GPU, DEVICE_FPGA)
+    PATH_PREFIX = '/accelerator/v2'
