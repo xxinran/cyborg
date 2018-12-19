@@ -14,7 +14,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # TODO: The enum value should be further discussed.
-state = sa.Enum('Initial', 'Bound', 'BindFailed', name='state')
+state = sa.Enum('Initial', 'Bound', 'Unbound', 'BindFailed', name='state')
 substate = sa.Enum('Initial', name='substate')
 attach_type = sa.Enum('PCI', 'MDEV', name='attach_type')
 cpid_type = sa.Enum('PCI', name='cpid_type')
@@ -62,6 +62,9 @@ def upgrade():
         sa.Column('device_id', sa.Integer(),
                   sa.ForeignKey('devices.id', ondelete="RESTRICT"),
                   nullable=False),
+        sa.Column('rp_uuid', sa.String(length=36), nullable=True),
+        sa.Column('driver_name', sa.String(length=100), nullable=True),
+        sa.Column('num_accelerators_in_use', sa.Integer(), default=0),
         sa.PrimaryKeyConstraint('id'),
         sa.Index('deployables_parent_id_idx', 'parent_id'),
         sa.Index('deployables_root_id_idx', 'root_id'),
@@ -152,9 +155,10 @@ def upgrade():
         sa.Column('device_profile_id', sa.Integer(),
                   sa.ForeignKey('device_profiles.id', ondelete="RESTRICT"),
                   nullable=False),
+        sa.Column('device_profile_group_id', sa.Integer(), nullable=False),
         sa.Column('hostname', sa.String(length=255), nullable=True),
         sa.Column('device_rp_uuid', sa.String(length=36), nullable=True),
-        sa.Column('device_instance_uuid', sa.String(length=36),
+        sa.Column('instance_uuid', sa.String(length=36),
                   nullable=True),
         sa.Column('attach_handle_id', sa.Integer(),
                   sa.ForeignKey('attach_handles.id', ondelete="RESTRICT"),
@@ -168,7 +172,7 @@ def upgrade():
         sa.Index('extArqs_project_id_idx', 'project_id'),
         sa.Index('extArqs_device_profile_id_idx', 'device_profile_id'),
         sa.Index('extArqs_device_rp_uuid_idx', 'device_rp_uuid'),
-        sa.Index('extArqs_device_instance_uuid_idx', 'device_instance_uuid'),
+        sa.Index('extArqs_instance_uuid_idx', 'instance_uuid'),
         sa.Index('extArqs_attach_handle_id_idx', 'attach_handle_id'),
         sa.Index('extArqs_deployable_id_idx', 'deployable_id'),
         mysql_ENGINE='InnoDB',

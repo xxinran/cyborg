@@ -14,6 +14,7 @@
 #    under the License.
 
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 from oslo_versionedobjects import base as object_base
 
 from cyborg.db import api as dbapi
@@ -33,56 +34,72 @@ class DeviceProfile(base.CyborgObject, object_base.VersionedObjectDictCompat):
 
     fields = {
         'id': object_fields.IntegerField(nullable=False),
-        'uuid': object_fields.UUIDField(nullable=False),
+        'uuid': object_fields.StringField(nullable=False),
         'name': object_fields.StringField(nullable=False),
-        'profile_json': object_fields.StringField(nullable=False),
+        'groups': object_fields.ListOfDictOfNullableStringsField(),
     }
 
+    def _to_profile_json(self, obj_changes):
+        assert 'groups' in obj_changes
+        if 'groups' in obj_changes:  # Convert to profile_json string
+            d = {"groups": obj_changes['groups']}
+            profile_json = jsonutils.dumps(d)
+            obj_changes['profile_json'] = profile_json
+            obj_changes.pop('groups', None)  # del 'groups'
+
     def create(self, context):
-        """Create a device_profile record in the DB."""
+        """Create a Device Profile record in the DB."""
+        # TODO validate with a JSON schema
+        if 'name' not in self:
+            raise exception.ObjectActionError(action='create',
+                                              reason='name is required')
+
         values = self.obj_get_changes()
-        db_device_profile = self.dbapi.device_profile_create(context, values)
-        self._from_db_object(self, db_device_profile)
+        self._to_profile_json(values)
+
+        db_devprof = self.dbapi.device_profile_create(context, values)
+        self._from_db_object(self, db_devprof)
 
     @classmethod
-    def get(cls, context, uuid):
-        """Find a DB Device_profile and return a Obj Device_profile."""
-        db_device_profile = cls.dbapi.device_profile_get_by_uuid(context, uuid)
-        obj_device_profile = cls._from_db_object(cls(context),
-                                                 db_device_profile)
-        return obj_device_profile
+    def get(cls, context, name):
+        """Find a DB Device Profile and return an Obj Device Profile."""
+        db_devprof = cls.dbapi.device_profile_get(context, name)
+        obj_devprof = cls._from_db_object(cls(context), db_devprof)
+        return obj_devprof
 
     @classmethod
-    def list(cls, context, filters={}):
-        """Return a list of Device_profile objects."""
-        if filters:
-            sort_dir = filters.pop('sort_dir', 'desc')
-            sort_key = filters.pop('sort_key', 'created_at')
-            limit = filters.pop('limit', None)
-            marker = filters.pop('marker_obj', None)
-            db_device_profiles = cls.dbapi.device_profile_list_by_filters(
-                context, filters, sort_dir=sort_dir, sort_key=sort_key,
-                limit=limit, marker=marker)
-        else:
-            db_device_profiles = cls.dbapi.device_profile_list(context)
-        return cls._from_db_object_list(db_device_profiles, context)
+    def list(cls, context):
+        """Return a list of Device Profile objects."""
+        db_devprofs = cls.dbapi.device_profile_list(context)
+        obj_dp_list = cls._from_db_object_list(db_devprofs, context)
+        return obj_dp_list
 
     def save(self, context):
-        """Update a Device_profile record in the DB."""
+        """Update a Device Profile record in the DB."""
         updates = self.obj_get_changes()
-        db_device_profile = self.dbapi.device_profile_update(context,
-                                                             self.uuid,
-                                                             updates)
-        self._from_db_object(self, db_device_profile)
+        self._to_profile_json(updates)
+
+        db_devprof = self.dbapi.device_profile_update(context,
+                                                      self.name, updates)
+        self._from_db_object(self, db_devprof)
 
     def destroy(self, context):
-        """Delete the Device_profile from the DB."""
-        self.dbapi.device_profile_delete(context, self.uuid)
+        """Delete a Device Profile from the DB."""
+        self.dbapi.device_profile_delete(context, self.name)
         self.obj_reset_changes()
 
     @classmethod
-    def get_by_id(cls, context, id):
-        """Find a device_profile and return an Obj DeviceProfile."""
-        db_dp = cls.dbapi.device_profile_get_by_id(context, id)
-        obj_dp = cls._from_db_object(cls(context), db_dp)
-        return obj_dp
+    def _from_db_object(cls, obj, db_obj):
+        """Converts a device_profile to a formal object.
+
+        :param obj: An object of the class.
+        :param db_obj: A DB model of the object
+        :return: The object of the class with the database entity added
+        """
+        # Convert from profile_json to 'groups' ListOfDictOfStrings
+        d = jsonutils.loads(db_obj['profile_json'])
+        db_obj['groups'] = d['groups']
+        # db_obj.pop('profile_json', None)
+
+        obj = base.CyborgObject._from_db_object(obj, db_obj)
+        return obj

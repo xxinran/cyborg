@@ -18,4 +18,4 @@ from cyborg.tests.unit.api import base
 
 class APITestV2(base.BaseApiTest):
 
-    PATH_PREFIX = '/v2'
+    PATH_PREFIX = '/accelerator/v2'
