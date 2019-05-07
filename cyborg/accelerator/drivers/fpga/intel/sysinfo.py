@@ -29,7 +29,6 @@ from cyborg.objects.driver_objects import driver_deployable, driver_device,\
     driver_attach_handle, driver_controlpath_id, driver_attribute
 from cyborg.common import constants
 
-
 PCI_DEVICES_PATH = "/sys/bus/pci/devices"
 PCI_DEVICES_PATH_PATTERN = "/sys/bus/pci/devices/*"
 # TODO(shaohe) The KNOW_FPGAS can be configurable.
@@ -37,6 +36,7 @@ KNOW_FPGAS = [("0x8086", "0x09c4")]
 
 INTEL_FPGA_DEV_PREFIX = "intel-fpga-dev"
 SYS_FPGA = "/sys/class/fpga"
+
 DEVICE = "device"
 PF = "physfn"
 VF = "virtfn*"
