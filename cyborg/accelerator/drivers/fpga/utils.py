@@ -23,7 +23,7 @@ import re
 
 VENDORS = ["intel"]  # can extend, such as ["intel", "xilinx"]
 
-SYS_FPGA_PATH = "/sys/class/fpga"
+SYS_FPGA_PATH = "/tmp/sys/class/fpga"
 VENDORS_PATTERN = re.compile("|".join(["(%s)" % v for v in VENDORS]))
 
 

@@ -24,12 +24,12 @@ import os
 import re
 from oslo_serialization import jsonutils
 
-from cyborg.agent import rc_fields
+from cyborg.common import rc_fields
 from cyborg.objects.driver_objects import driver_deployable, driver_device,\
     driver_attach_handle, driver_controlpath_id, driver_attribute
 from cyborg.common import constants
 
-SYS_FPGA = "/sys/class/fpga"
+SYS_FPGA = "/tmp/sys/class/fpga"
 DEVICE = "device"
 PF = "physfn"
 VF = "virtfn*"
