@@ -27,8 +27,8 @@ from oslo_log import log as logging
 from oslo_middleware import request_id
 from oslo_utils import versionutils
 
-from cyborg.agent import provider_tree
-from cyborg.agent import rc_fields as fields
+from cyborg.conductor import provider_tree
+from cyborg.common import rc_fields as fields
 from cyborg.common import exception
 from cyborg.common.i18n import _
 from cyborg.common import utils
@@ -1143,6 +1143,40 @@ class SchedulerReportClient(object):
 
         # Otherwise, raise generic exception
         raise exception.ResourceProviderUpdateFailed(url=url, error=resp.text)
+
+    @safe_connect
+    def ensure_resource_classes(self, context, names):
+        """Make sure resource classes exist.
+
+        :param context: The security context
+        :param names: Iterable of string names of the resource classes to
+                      check/create.  Must not be None.
+        :raises: exception.InvalidResourceClass if an attempt is made to create
+                 an invalid resource class.
+        """
+        # Placement API version that supports PUT /resource_classes/CUSTOM_*
+        # to create (or validate the existence of) a consumer-specified
+        # resource class.
+        version = '1.7'
+        to_ensure = set(n for n in names
+                        if n.startswith(fields.ResourceClass.CUSTOM_NAMESPACE))
+
+        for name in to_ensure:
+            # no payload on the put request
+            resp = self.put(
+                "/resource_classes/%s" % name, None, version=version,
+                global_request_id=context.global_id)
+            if not resp:
+                msg = ("Failed to ensure resource class record with placement "
+                       "API for resource class %(rc_name)s. Got "
+                       "%(status_code)d: %(err_text)s.")
+                args = {
+                    'rc_name': name,
+                    'status_code': resp.status_code,
+                    'err_text': resp.text,
+                }
+                LOG.error(msg, args)
+                raise exception.InvalidResourceClass(resource_class=name)
 
     @safe_connect
     def _ensure_traits(self, context, traits):

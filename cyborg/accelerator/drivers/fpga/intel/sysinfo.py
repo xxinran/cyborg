@@ -23,13 +23,13 @@ import glob
 import os
 import re
 from oslo_serialization import jsonutils
-from cyborg import objects
-from cyborg.agent import rc_fields
+
+from cyborg.common import rc_fields
 from cyborg.objects.driver_objects import driver_deployable, driver_device,\
     driver_attach_handle, driver_controlpath_id, driver_attribute
 from cyborg.common import constants
 
-SYS_FPGA = "/sys/class/fpga"
+SYS_FPGA = "/tmp/sys/class/fpga"
 DEVICE = "device"
 PF = "physfn"
 VF = "virtfn*"
@@ -48,6 +48,7 @@ RC_FPGA = rc_fields.ResourceClass.normalize_name(
 RESOURCES = {
     "fpga": RC_FPGA
 }
+
 
 def all_fpgas():
     # glob.glob1("/sys/class/fpga", "*")
@@ -118,6 +119,7 @@ def get_pf_bdf(bdf):
         return get_bdf_by_path(path)
     return bdf
 
+
 def get_afu_ids(name):
     ids = []
     for path in glob.glob(os.path.join(
@@ -136,6 +138,7 @@ def get_traits(name, product_id):
         l = "CUSTOM_FPGA_INTEL_FUNCTION_" + i.upper()
         traits.append(l)
     return {"traits": traits}
+
 
 def fpga_device(path):
     infos = {}
@@ -170,7 +173,7 @@ def fpga_tree():
         fpga.update(d_info)
         traits = get_traits(fpga["name"], fpga["product_id"])
         fpga.update(traits)
-        fpga["rc"] = RESOURCES["fpga"] 
+        fpga["rc"] = RESOURCES["fpga"]
         return fpga
     devs = []
     pf_has_vf = all_pfs_have_vf()
@@ -225,7 +228,7 @@ def _generate_dep_list(fpga, pf_has_vf):
     else:
         driver_dep.num_accelerators = len(fpga["regions"])
         for vf in fpga["regions"]:
-            #only vfs in regions can be attach, no pf.
+            # Only vfs in regions can be attach, no pf.
             driver_dep.attach_handle_list.append(
                 _generate_attach_handle(vf, False))
             driver_dep.name = vf["name"]
@@ -239,6 +242,7 @@ def _generate_attach_handle(fpga, pf_has_vf):
     driver_ah.in_use = False
     return driver_ah
 
+
 def _generate_attribute_list(fpga):
     attr_list = []
     for k, v in fpga.items():
@@ -251,8 +255,7 @@ def _generate_attribute_list(fpga):
             values = fpga.get(k, None)
             for val in values:
                 driver_attr = driver_attribute.DriverAttribute()
-                driver_attr.key = k
+                driver_attr.key = "trait" + str(values.index(val))
                 driver_attr.value = val
                 attr_list.append(driver_attr)
     return attr_list
-    
