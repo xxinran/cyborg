@@ -172,6 +172,20 @@ Cell V2 Deployment
 Compute node services must be mapped to a cell before they can be used.
 Cell V2 deployment, please ref [#CellV2]_.
 
+After each compute node is stacked, verify it shows up in the
+**nova service-list --binary nova-compute** output. The compute service is
+registered in the cell database asynchronously so this may require polling.
+
+Once the compute node services shows up, run the **./tools/discover_hosts.sh**
+script from the control node to map compute hosts to the single cell. You can
+also simply run these 2 comands on the controller,
+**nova-manage cell_v2 discover_hosts --verbose** and
+**nova-manage cell_v2 simple_cell_setup**.
+
+The compute service running on the primary control node will be discovered
+automatically when the control node is stacked so this really only needs to
+be performed for subnodes.
+
 Run DevStack
 ------------
 
