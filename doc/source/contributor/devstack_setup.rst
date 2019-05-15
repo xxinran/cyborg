@@ -142,6 +142,49 @@ Disable OPAE install
   If you do not want to try Intel FPGA, you can disable OPAE install. Then you
   do not depend on specific OS verson.
 
+Multi-Node Lab
+--------------
+If you want to setup an OpenStack with cyborg in a realistic test configuration
+with multiple physical servers. Please ref [#MultiNodeLab]_.
+
+Cluster Controller
+>>>>>>>>>>>>>>>>>>
+
+::
+
+  disable_service cyborg-agent
+
+Compute Nodes
+>>>>>>>>>>>>>
+
+::
+
+  enable_service cyborg-agent
+  disable_service cyborg-api
+  disable_service cyborg-cond
+
+- If you do not want to setup cyborg-agent on controller, you can disable it.
+- You do not need to enable cyborg-api and cyborg-cond on compute nodes.
+
+Cell V2 Deployment
+>>>>>>>>>>>>>>>>>>
+
+Compute node services must be mapped to a cell before they can be used.
+Cell V2 deployment, please ref [#CellV2]_.
+
+After each compute node is stacked, verify it shows up in the
+**nova service-list --binary nova-compute** output. The compute service is
+registered in the cell database asynchronously so this may require polling.
+
+Once the compute node services shows up, run the **./tools/discover_hosts.sh**
+script from the control node to map compute hosts to the single cell. You can
+also simply run these 2 comands on the controller,
+**nova-manage cell_v2 discover_hosts --verbose** and
+**nova-manage cell_v2 simple_cell_setup**.
+
+The compute service running on the primary control node will be discovered
+automatically when the control node is stacked so this really only needs to
+be performed for subnodes.
 
 Run DevStack
 ------------
@@ -170,3 +213,11 @@ Horizon
 
 You can access horizon to experience the web interface to OpenStack, and manage
 vms, networks, volumes, and images from there.
+
+References
+==========
+
+.. [#MultiNodeLab] `Openstack Multi-Node Lab Setup
+  <https://docs.openstack.org/devstack/latest/guides/multinode-lab.html>`_
+.. [#CellV2] `Openstack Cell V2 Deployment Guide
+  <https://docs.openstack.org/nova/latest/user/cells.html>`_
