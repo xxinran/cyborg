@@ -115,5 +115,5 @@ delete_arq() {
         $CYURL/accelerator_requests\?arqs="$arq_uuid"
 }
 
-source /opt/stack/devstack/openrc admin admin
+source ~/devstack/openrc admin admin
 export CYURL="http://localhost/accelerator/v2"
