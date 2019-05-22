@@ -99,10 +99,15 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         obj_extarq_list = cls._from_db_object_list(db_extarqs, context)
         return obj_extarq_list
 
-    def save(self, context):
+    def save(self, context, dep_uuid=None):
         """Update an ExtARQ record in the DB."""
         updates = self.obj_get_changes()
         db_extarq = self.dbapi.extarq_update(context, self.arq.uuid, updates)
+        if dep_uuid:
+            db_dep = self.dbapi.deployable_get(context, dep_uuid)
+            # db_extarq["deployable_id"] = db_dep["id"]
+            db_extarq = self.dbapi.extarq_update(
+                    context, self.arq.uuid, {"deployable_id": db_dep["id"]})
         self._from_db_object(self, db_extarq, context)
 
     def destroy(self, context):
@@ -193,7 +198,7 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
             LOG.info('[arqs:objs] bind. Programming needed. '
                      'bitstream: (%s) function: (%s) Deployable UUID: (%s)',
                      bitstream_id or '', function_id or '',
-                     db_deployable.uuid)
+                     db_deployable["uuid"])
             if bitstream_id is not None:  # FPGA aaS
                 assert function_id is None
                 bitstream_md = self._get_bitstream_md_from_bitstream_id(
@@ -227,7 +232,8 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
 
         # FIXME db_deployable.num_accelerators_in_use += 1
         # FIXME write deployable to db
-        self.save(context)  # ARQ state changes get committed here
+        self.deployable_uuid = db_deployable.uuid
+        self.save(context, dep_uuid=db_deployable.uuid)  # ARQ state changes get committed here
 
     def unbind(self, context):
         arq = self.arq
@@ -252,14 +258,32 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
 
         db_extarq['attach_handle_type'] = ''
         db_extarq['attach_handle_info'] = ''
+        LOG.warning("-"*80)
         if db_extarq['state'] == 'Bound':  # TODO Do proper bind
-            db_ah = cls.dbapi.attach_handle_get_by_type(context, 'PCI')
-            if db_ah is not None:
-                db_extarq['attach_handle_type'] = db_ah['attach_type']
-                db_extarq['attach_handle_info'] = db_ah['attach_info']
+            # import pdb; pdb.set_trace()
+            if not db_extarq["deployable_id"]:
+                # raise exception.ObjectActionError(
+                #     action='bind',
+                #     reason='ARQ bind failed, there is no valide deployable id.')
+                LOG.warning("no valide deployable id binds to ARQ.")
+            else:
+                db_ahs = cls.dbapi.attach_handle_get_by_filters(
+                        context, {"deployable_id": db_extarq["deployable_id"]})
+                if db_ahs:
+                    db_ah = db_ahs[0]
+                    db_extarq['attach_handle_type'] = db_ah['attach_type']
+                    db_extarq['attach_handle_info'] = db_ah['attach_info']
 
         # TODO Get the deployable_uuid
         db_extarq['deployable_uuid'] = ''
+        if db_extarq["deployable_id"]:
+            deps = cls.dbapi.deployable_get_by_filters(
+                context, {"id": db_extarq["deployable_id"]})
+            if deps:
+                db_extarq['deployable_uuid'] = deps[0]["uuid"]
+            else:
+                LOG.warning("'ExtArq' object has no attribute 'deployable_uuid'.")
+        LOG.info("deployable_uuid = ", db_extarq['deployable_uuid'])
 
         # Get the device profile group
         obj_devprof = DeviceProfile.get(context, devprof['name'])

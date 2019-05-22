@@ -403,8 +403,11 @@ class ConductorManager(object):
             traits = [i.value for i in attrs
                       if i.key.encode('utf-8').startswith("trait")]
             total = obj.num_accelerators
-            self.provider_report(context, pr_name, resource_class, traits,
+            rp_uuid = self.provider_report(context, pr_name, resource_class, traits,
                                  total, parent_uuid)
+            dep_obj = Deployable.get_by_name(context, pr_name)
+            dep_obj["rp_uuid"] =  rp_uuid
+            dep_obj.save(context)
         else:
             raise exception.Invalid()
 
