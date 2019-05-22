@@ -1,0 +1,180 @@
+# install FPGA driver
+# wget https://github.com/OPAE/opae-sdk/releases/download/1.0.0-5/opae-intel-fpga-driver-1.0.0.x86_64.deb 
+wget https://github.com/OPAE/opae-sdk/releases/download/1.3.0-2/opae-intel-fpga-driver-1.3.0-2.x86_64.deb
+sudo apt install -y gdebi
+sudo gdebi opae-intel-fpga-driver-1.3.0-2.x86_64.deb
+# DKMS: install completed.
+sudo apt install -y dkms gcc make build-essential
+
+git fetch https://review.opendev.org/openstack/cyborg refs/changes/20/626420/22 && git format-patch -1 FETCH_HEAD
+git am 0001-Initial-setup-script-and-curl-utilities.patch
+git fetch https://review.opendev.org/openstack/cyborg refs/changes/57/626057/10 && git format-patch -1 FETCH_HEAD
+git am 0001-Changes-for-v2-API-and-Nova-integration-for-VM-creat.patch
+
+
+COMMIT=`git log --oneline  --grep="Changes for v2 API and Nova integration for VM creation" |awk '{print $1}'`
+git show $COMMIT cyborg/services/client/report.py cyborg/services/report.py cyborg/services/__init__.py  cybor
+g/services/client/__init__.py > revert.patch
+git checkout ctcc
+git apply -R revert.patch
+git commit -m "support placement by obsolete report.py"
+
+git fetch https://review.opendev.org/openstack/cyborg refs/changes/33/659233/1 && git format-patch -1  FETCH_HEAD
+git am 0001-WIP-Placement-report.patch
+
+
+git fetch https://review.opendev.org/openstack/nova refs/changes/42/631242/19 && git format-patch -1  FETCH_HEAD
+git am --3way 0001-ksa-auth-conf-and-client-for-cyborg-access.patch
+git fetch https://review.opendev.org/openstack/nova refs/changes/43/631243/18 && git format-patch -1  FETCH_HEAD
+git am 0001-WIP-Add-Cyborg-device-profile-groups-to-request-spec.patch
+git fetch https://review.opendev.org/openstack/nova refs/changes/44/631244/15 && git format-patch -1  FETCH_HEAD
+git am 0001-WIP-Create-and-bind-Cyborg-ARQs.patch
+git fetch https://review.opendev.org/openstack/nova refs/changes/45/631245/13 && git format-patch -1  FETCH_HEAD
+git am 0001-WIP-Get-resolved-Cyborg-ARQs-and-add-PCI-BDFs-to-VM-.patch
+
+
+
+# node
+sudo systemctl restart devstack@cyborg-agent.service
+sudo systemctl status devstack@cyborg-agent.service
+# node
+sudo systemctl restart devstack@n-cpu.service
+sudo systemctl status devstack@n-cpu.service
+
+# ctrl
+sudo systemctl restart devstack@cyborg-api.service
+sudo systemctl status devstack@cyborg-api.service
+sudo systemctl restart devstack@cyborg-cond.service
+sudo systemctl status devstack@cyborg-cond.service
+
+# ctrl
+sudo systemctl restart devstack@n-api.service
+sudo systemctl restart devstack@n-cauth.service
+sudo systemctl restart devstack@n-cond-cell1.service
+sudo systemctl restart devstack@n-novnc-cell1.service
+sudo systemctl restart devstack@n-sch.service
+sudo systemctl restart devstack@n-super-cond.service
+
+sudo systemctl status devstack@n-api.service
+sudo systemctl status devstack@n-cauth.service
+sudo systemctl status devstack@n-cond-cell1.service
+sudo systemctl status devstack@n-novnc-cell1.service
+sudo systemctl status devstack@n-sch.service
+sudo systemctl status devstack@n-super-cond.service
+
+cat >> /etc/cyborg/cyborg.conf <<< "[agent]
+enabled_drivers = intel_fpga_driver"
+
+cat >> /etc/cyborg/cyborg.conf <<<"
+[DEFAULT]
+transport_url = rabbit://stackrabbit:123@192.168.0.156:5672/
+
+[glance]
+api_servers = http://192.168.0.156/image
+project_domain_name = Default
+project_name = service
+user_domain_name = Default
+password = 123
+username = glance
+auth_url = http://192.168.0.156/identity
+auth_type = password
+auth_section = keystone_authtoken
+
+[keystone_authtoken]
+memcached_servers = localhost:11211
+signing_dir = /var/cache/cyborg/api
+cafile = /opt/stack/data/ca-bundle.pem
+project_domain_name = Default
+project_name = service
+user_domain_name = Default
+password = 123
+username = cyborg
+auth_url = http://192.168.0.156/identity
+auth_type = password
+"
+
+
+# verify
+AUTH="X-Auth-Token: $(openstack token issue -c id -f value)"
+CTYPE="Content-Type: application/json"
+CYURL="http://localhost/accelerator/v2"
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/devices
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
+
+
+
+openstack resource provider list
+UUID=25571ff4-6086-3859-9cb1-c18b073fe2a7
+UUID=`openstack resource provider list -f value |grep intel-fpga-dev |head -n 1 |awk '{print $1}'`
+OS_PLACEMENT_API_VERSION=1.10 openstack resource class list
+OS_PLACEMENT_API_VERSION=1.10 openstack resource class show CUSTOM_ACCELERATOR_FPGA
+OS_PLACEMENT_API_VERSION=1.10 openstack resource provider inventory show $UUID CUSTOM_ACCELERATOR_FPGA
+OS_PLACEMENT_API_VERSION=1.10 openstack resource provider inventory list $UUID
+OS_PLACEMENT_API_VERSION=1.10 openstack trait list
+OS_PLACEMENT_API_VERSION=1.10 openstack trait show CUSTOM_FPGA_INTEL
+OS_PLACEMENT_API_VERSION=1.10 openstack trait show CUSTOM_FPGA_INTEL_FUNCTION_F7DF405CBD7ACF7222F144B0B93ACD18
+OS_PLACEMENT_API_VERSION=1.10 openstack resource provider trait list $UUID
+OS_PLACEMENT_API_VERSION=1.10 openstack resource provider usage show $UUID
+openstack resource provider allocation show 
+
+
+# create device profiles
+ARRAY=`OS_PLACEMENT_API_VERSION=1.10 openstack resource provider trait list $UUID -c name -f value`
+DEVICE_TRAIT=`head -n 1 <<< $ARRAY`
+FN_TRAIT=`tail -n 1 <<< $ARRAY`
+DEVPROF_NAME=afaas_example_1
+BODY="{ \"name\": \"$DEVPROF_NAME\",
+  \"groups\": [
+      {\"resources:CUSTOM_ACCELERATOR_FPGA\": \"1\",
+       \"trait:$DEVICE_TRAIT\": \"required\",
+       \"trait:$FN_TRAIT\": \"required\"
+      }
+  ]
+}"
+curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/device_profiles
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
+
+# create arq
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests
+BODY="{\"device_profile_name\": \"$DEVPROF_NAME\"}"
+curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/accelerator_requests
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests
+
+# bind arq
+NODENAME=`openstack hypervisor list -c "Hypervisor Hostname" -f value`
+PR_UUID=`openstack resource provider list -f value |grep intel-fpga-dev |head -n 1 |awk '{print $1}'`
+ARQ_UUID=`curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests | grep 'uuid": ".*?"' -oP |cut -d '"' -f 3`
+INS_UUID=$(uuidgen)
+
+BODY="{\"$ARQ_UUID\": [
+     {\"path\": \"/hostname\", \"op\": \"add\", \"value\": \"$NODENAME\"},
+     {\"path\": \"/device_rp_uuid\", \"op\": \"add\",
+            \"value\": \"$PR_UUID\"},
+     {\"path\": \"/instance_uuid\", \"op\": \"add\", \"value\": \"$INS_UUID\"}
+  ]
+}"
+curl -s -H "$CTYPE" -H "$AUTH" -X PATCH -d "$BODY" -w "%{http_code}\n" $CYURL/accelerator_requests
+
+# unbind arq
+BODY="{\"$ARQ_UUID\": [
+    {\"path\": \"/hostname\", \"op\": \"remove\"},
+    {\"path\": \"/device_rp_uuid\", \"op\": \"remove\"},
+    {\"path\": \"/instance_uuid\", \"op\": \"remove\"}
+  ]
+}"
+curl -s -H "$CTYPE" -H "$AUTH" -X PATCH -d "$BODY" -w "%{http_code}\n" $CYURL/accelerator_requests
+
+# delete arq
+curl -s -H "$CTYPE" -H "$AUTH" -X DELETE  $CYURL/accelerator_requests\?arqs="$ARQ_UUID"
+
+
+mysql> alter table deployables add column num_accelerators_in_use int default 0 after rp_uuid;
+mysql> drop database cyborg;
+mysql> create database cyborg;
+mysql> alter table deployables drop column driver_name;
+mysql> update deployables set id=1,rp_uuid='11c234e5-3d9c-3f72-9473-7aa29b7903aa' where name="intel-fpga-dev.1";
+mysql> update deployables set id=16,rp_uuid=null where name="intel-fpga-dev.1";
+
+$ cyborg-dbsync upgrade
+
+# config agent
