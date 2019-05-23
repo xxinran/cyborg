@@ -260,6 +260,14 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
 
         # TODO Get the deployable_uuid
         db_extarq['deployable_uuid'] = ''
+        if db_extarq["deployable_id"]:
+            deps = cls.dbapi.deployable_get_by_filters(
+                context, {"id": db_extarq["deployable_id"]})
+            if deps:
+                db_extarq['deployable_uuid'] = deps[0]["uuid"]
+            else:
+                LOG.warning("'ExtArq' object has no attribute 'deployable_uuid'.")
+        LOG.info("deployable_uuid = %s" % db_extarq['deployable_uuid'])
 
         # Get the device profile group
         obj_devprof = DeviceProfile.get(context, devprof['name'])

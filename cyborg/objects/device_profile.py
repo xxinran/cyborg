@@ -16,6 +16,7 @@
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_versionedobjects import base as object_base
+from cyborg.common import exception
 
 from cyborg.db import api as dbapi
 from cyborg.objects import base
