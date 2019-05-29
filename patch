@@ -1,10 +1,12 @@
 # install FPGA driver
-# wget https://github.com/OPAE/opae-sdk/releases/download/1.0.0-5/opae-intel-fpga-driver-1.0.0.x86_64.deb 
+# wget https://github.com/OPAE/opae-sdk/releases/download/1.0.0-5/opae-intel-fpga-driver-1.0.0.x86_64.deb
 wget https://github.com/OPAE/opae-sdk/releases/download/1.3.0-2/opae-intel-fpga-driver-1.3.0-2.x86_64.deb
 sudo apt install -y gdebi
 sudo gdebi opae-intel-fpga-driver-1.3.0-2.x86_64.deb
 # DKMS: install completed.
 sudo apt install -y dkms gcc make build-essential
+cd /usr/src/intel-fpga-1.3.0-2/
+make
 
 git fetch https://review.opendev.org/openstack/cyborg refs/changes/20/626420/22 && git format-patch -1 FETCH_HEAD
 git am 0001-Initial-setup-script-and-curl-utilities.patch
@@ -98,28 +100,53 @@ auth_type = password
 AUTH="X-Auth-Token: $(openstack token issue -c id -f value)"
 CTYPE="Content-Type: application/json"
 CYURL="http://localhost/accelerator/v2"
+CYURL=`openstack endpoint list --service cyborg --interface "public" -c "URL" -f value`
+APIV="OpenStack-API-Version: placement 1.32"
 curl -s -H "$CTYPE" -H "$AUTH" $CYURL/devices
 curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
 
+PROJECT_NAME=admin
+PROJECT_ID=`openstack project show $PROJECT_NAME -c id -f value`
+USER_NAME=admin
+USER_ID=`openstack user show $USER_NAME -c id -f value`
+curl -s -w "\nstatus_code: %{http_code}\n" -H "$CTYPE" -H "$AUTH" -H "$APIV" $PLURL/usages?project_id=$PROJECT_ID
+curl -s -w "\nstatus_code: %{http_code}\n" -H "$CTYPE" -H "$AUTH" -H "$APIV" "$PLURL/usages?project_id=$PROJECT_ID&user_id=$USER_ID"
 
-
+OS_PLACEMENT_API_VERSION=1.18 openstack resource class list
+OS_PLACEMENT_API_VERSION=1.18 openstack allocation candidate list --resource CUSTOM_ACCELERATOR_FPGA=1
+FPGA_FUN_ID=`OS_PLACEMENT_API_VERSION=1.18 openstack trait list -f value -c name |grep CUSTOM_FPGA_INTEL_FUNCTION |tail -n 1`
+REQ_RES="allocation_candidates?limit=1000&required1=CUSTOM_FPGA_INTEL,$FPGA_FUN_ID&resources=DISK_GB:1,MEMORY_MB:512,VCPU:1&resources1=CUSTOM_ACCELERATOR_FPGA:1"
+REQ_NORRES="allocation_candidates?limit=1000&resources=DISK_GB:1,MEMORY_MB:512,VCPU:1"
+REQ_FPGARES="allocation_candidates?limit=1000&required1=CUSTOM_FPGA_INTEL,$FPGA_FUN_ID&resources1=CUSTOM_ACCELERATOR_FPGA:1"
+PLURL="http://localhost/placement"
+curl -s -w "\nstatus_code: %{http_code}\n" -H "$CTYPE" -H "$AUTH" -H "$APIV" $PLURL/$REQ_RES
+curl -s -w "\nstatus_code: %{http_code}\n" -H "$CTYPE" -H "$AUTH" -H "$APIV" $PLURL/allocation_candidates?resources=VCPU:4,DISK_GB:64,MEMORY_MB:2048
+curl -s -w "\nstatus_code: %{http_code}\n" -H "$CTYPE" -H "$AUTH" -H "$APIV" $PLURL/allocation_candidates?resources=CUSTOM_ACCELERATOR_FPGA:1,VCPU:1
 openstack resource provider list
 UUID=25571ff4-6086-3859-9cb1-c18b073fe2a7
 UUID=`openstack resource provider list -f value |grep intel-fpga-dev |head -n 1 |awk '{print $1}'`
-OS_PLACEMENT_API_VERSION=1.10 openstack resource class list
-OS_PLACEMENT_API_VERSION=1.10 openstack resource class show CUSTOM_ACCELERATOR_FPGA
-OS_PLACEMENT_API_VERSION=1.10 openstack resource provider inventory show $UUID CUSTOM_ACCELERATOR_FPGA
-OS_PLACEMENT_API_VERSION=1.10 openstack resource provider inventory list $UUID
-OS_PLACEMENT_API_VERSION=1.10 openstack trait list
-OS_PLACEMENT_API_VERSION=1.10 openstack trait show CUSTOM_FPGA_INTEL
-OS_PLACEMENT_API_VERSION=1.10 openstack trait show CUSTOM_FPGA_INTEL_FUNCTION_F7DF405CBD7ACF7222F144B0B93ACD18
-OS_PLACEMENT_API_VERSION=1.10 openstack resource provider trait list $UUID
-OS_PLACEMENT_API_VERSION=1.10 openstack resource provider usage show $UUID
-openstack resource provider allocation show 
+OS_PLACEMENT_API_VERSION=1.18 openstack resource class list
+OS_PLACEMENT_API_VERSION=1.18 openstack resource class show CUSTOM_ACCELERATOR_FPGA
+OS_PLACEMENT_API_VERSION=1.18 openstack resource provider inventory show $UUID CUSTOM_ACCELERATOR_FPGA
+OS_PLACEMENT_API_VERSION=1.18 openstack resource provider inventory list $UUID
+OS_PLACEMENT_API_VERSION=1.18 openstack trait list
+OS_PLACEMENT_API_VERSION=1.18 openstack trait show CUSTOM_FPGA_INTEL
+OS_PLACEMENT_API_VERSION=1.18 openstack trait show $FPGA_FUN_ID
+OS_PLACEMENT_API_VERSION=1.18 openstack resource provider trait list $UUID
+OS_PLACEMENT_API_VERSION=1.18 openstack resource provider usage show $UUID
+VMNAME=c7-1708
+COMSUMER=`openstack server list  -c ID -f value --instance-name $VMNAME |head -n 1`
+openstack resource provider allocation show $COMSUMER
+OS_PLACEMENT_API_VERSION=1.18 openstack allocation candidate list --resource CUSTOM_ACCELERATOR_FPGA=1
+OS_PLACEMENT_API_VERSION=1.18 openstack allocation candidate list --resource CUSTOM_ACCELERATOR_FPGA=1 --required $FPGA_FUN_ID,CUSTOM_FPGA_INTEL
+openstack usage list
+openstack availability zone list
+V2URL=http://192.168.0.156/accelerator/v2
+for i in `openstack endpoint list -c ID -c "Service Name" -f value  |grep cyborg |awk '{print $1}'`; do openstack endpoint set --url $V2URL $i; done
 
 
 # create device profiles
-ARRAY=`OS_PLACEMENT_API_VERSION=1.10 openstack resource provider trait list $UUID -c name -f value`
+ARRAY=`OS_PLACEMENT_API_VERSION=1.18 openstack resource provider trait list $UUID -c name -f value`
 DEVICE_TRAIT=`head -n 1 <<< $ARRAY`
 FN_TRAIT=`tail -n 1 <<< $ARRAY`
 DEVPROF_NAME=afaas_example_1
@@ -131,14 +158,23 @@ BODY="{ \"name\": \"$DEVPROF_NAME\",
       }
   ]
 }"
+# FIXME can create duplicated dp with same name
 curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/device_profiles
+# FIXME do not support uuid
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles/$DEVPROF_NAME | python -m json.tool
+UUID=`curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles/$DEVPROF_NAME |grep  'uuid": ".*?"' -oP |cut -d '"' -f 3`
 curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
+curl -s -H "$CTYPE" -H "$AUTH" -x DELETE $CYURL/device_profiles/$DEVPROF_NAME
+mysql -u root -p123 -e "use cyborg;
+delete FROM device_profiles where uuid=\"$DPUUID\""
 
 # create arq
-curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests | python -m json.tool
 BODY="{\"device_profile_name\": \"$DEVPROF_NAME\"}"
 curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/accelerator_requests
-curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/accelerator_requests/$ARQUUID |python -m json.tool
+VMUUID=
+curl -s -H "$CTYPE" -H "$AUTH" "$CYURL/accelerator_requests?bind_state=resolved&instance=\"$VMUUID\"" |python -m json.tool
 
 # bind arq
 NODENAME=`openstack hypervisor list -c "Hypervisor Hostname" -f value`
@@ -166,15 +202,251 @@ curl -s -H "$CTYPE" -H "$AUTH" -X PATCH -d "$BODY" -w "%{http_code}\n" $CYURL/ac
 
 # delete arq
 curl -s -H "$CTYPE" -H "$AUTH" -X DELETE  $CYURL/accelerator_requests\?arqs="$ARQ_UUID"
+mysql -u root -p123 -e "use cyborg;
+delete FROM extended_accelerator_requests where uuid=\"$ARQUUID\""
+
+# bitstream program
+openstack image list
+FUN_ID=`uuidgen`
+FUN_ID="D8424DC4A4A3C413F89E433683F9040B"
+REGION_TYPE_ID='9926AB6D6C925A68AABCA7D84C545738'
+BIT_FILE=LICENSE
+BIT_NAME=fpga_bts_1
+openstack image create --tag FPGA --property  REGION_TYPE_ID="accel:region_type_id=${REGION_TYPE_ID}" --property accel:function_id=$FUN_ID --file $BIT_FILE $BIT_NAME
+BITSTREAM_ID=`openstack image list -c ID -c Name -f value |grep $BIT_NAME |awk '{print $1}'`
+BITSTREAM_ID=`openstack image list -c ID -f value --property accel:function_id=$FUN_ID`
+# create a new device profiles
+ARRAY=`OS_PLACEMENT_API_VERSION=1.18 openstack resource provider trait list $UUID -c name -f value`
+DEVICE_TRAIT=`head -n 1 <<< $ARRAY`
+FN_TRAIT=`tail -n 1 <<< $ARRAY`
+DEVPROF_NAME=afaas_example_2
+BODY="{ \"name\": \"$DEVPROF_NAME\",
+  \"groups\": [
+      {\"resources:CUSTOM_ACCELERATOR_FPGA\": \"1\",
+       \"trait:$DEVICE_TRAIT\": \"required\",
+       \"trait:$FN_TRAIT\": \"required\",
+       \"accel:bitstream_id\": \"$BITSTREAM_ID\"
+      }
+  ]
+}"
+curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/device_profiles
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
+
+FLAVOR_NAME=program_bts_id
+openstack flavor create --vcpus 2 --ram 4096 --disk 10 \
+    --property "accel:device_profile=$DEVPROF_NAME" program_bts_id
+openstack server create --image 41935f14-2436-4839-bf4e-ecd26eefb018 --flavor $FLAVOR_NAME --nic net-id=a86706f9-9eed-4896-9667-68ea8bcbe63e $FLAVOR_NAME
 
 
+
+DEVPROF_NAME=afaas_example_3
+BODY="{ \"name\": \"$DEVPROF_NAME\",
+  \"groups\": [
+      {\"resources:CUSTOM_ACCELERATOR_FPGA\": \"1\",
+       \"trait:$DEVICE_TRAIT\": \"required\",
+       \"trait:$FN_TRAIT\": \"required\",
+       \"accel:function_id\": \"$FUN_ID\"
+      }
+  ]
+}"
+
+FLAVOR_NAME=program_fun_id
+openstack flavor create --vcpus 2 --ram 4096 --disk 10 \
+    --property "accel:device_profile=$DEVPROF_NAME" program_fun_id
+curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/device_profiles
+curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
+openstack server create --image 41935f14-2436-4839-bf4e-ecd26eefb018 --flavor $FLAVOR_NAME --nic net-id=a86706f9-9eed-4896-9667-68ea8bcbe63e $FLAVOR_NAME
+
+
+# db upgrade
 mysql> alter table deployables add column num_accelerators_in_use int default 0 after rp_uuid;
-mysql> drop database cyborg;
-mysql> create database cyborg;
 mysql> alter table deployables drop column driver_name;
 mysql> update deployables set id=1,rp_uuid='11c234e5-3d9c-3f72-9473-7aa29b7903aa' where name="intel-fpga-dev.1";
 mysql> update deployables set id=16,rp_uuid=null where name="intel-fpga-dev.1";
+mysql> drop database cyborg;
+mysql> create database cyborg;
+mysql> delete from extended_accelerator_requests where instance_uuid != "ee2c446a-ece7-423c-80f6-b9cdb83d86f5";
 
 $ cyborg-dbsync upgrade
 
 # config agent
+#
+
+# config nova api
+[cyborg]
+region_name = RegionOne
+project_domain_name = Default
+project_name = service
+user_domain_name = Default
+password = 123
+username = cyborg
+auth_url = http://192.168.0.156/identity
+auth_type = password
+
+mysql> delete from extended_accelerator_requests;
+mysql> set foreign_key_checks = 0;
+VMNAME=fpga-demo
+VMIP=`openstack server show $VMNAME -c addresses -f value |awk '{print $2}'`
+openstack subnet list
+openstack security group rule create --protocol tcp --ingress default
+SE_GR=`openstack security group list --project admin -c ID -f value`
+openstack security group rule create --protocol tcp --ingress $SE_GR
+NETNS=`ip netns |grep qrouter | awk '{print $1}'`
+for r in `openstack router list -c ID -f value`; do echo qrouter-$r; openstack router show -f value -c interfaces_info $r; done
+openstack router list --project demo
+
+openstack console log show $VMNAME
+# login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root.
+sudo ip netns exec $NETNS ssh cirros@$VMIP
+
+
+# https://unix.stackexchange.com/questions/178451/rhel-7-centos-7-security-ssh-sshd-config-advise-requested
+# http://madorn.com/cloud-init-admin-pass.html#.XP_BLFwzY2w
+# https://cloudinit.readthedocs.io/en/latest/topics/examples.html
+# https://support.telefonicaopencloud.com/en-us/usermanual/ims/en-us_topic_0122876047.html
+# https://mcwhirter.com.au/craige/blog/2015/Enable_Root_Login_Over_SSH_With_Cloud-Init_On_OpenStack/
+# https://docs.openstack.org/image-guide/centos-image.html
+CLOUD_INIT=/tmp/cloud-init.cfg
+
+cat > $CLOUD_INIT <<<'#cloud-config
+ssh_pwauth: True
+password: 123456
+chpasswd:
+  list: |
+    centos:123456
+    root:123456
+  expire: False'
+
+INIT_SCRIPT=/tmp/cloud-init.sh
+cat > $INIT_SCRIPT <<<'#!/bin/bash
+service sshd stop
+passwd root << EOF
+123456
+123456
+EOF
+useradd -m centos
+useradd -m user
+passwd centos << EOF
+123456
+123456
+EOF
+passwd user << EOF
+123456
+123456
+EOF
+touch /home/user/test.sh
+service sshd start
+echo "PermitRootLogin yes" | sudo tee -a /etc/ssh/sshd_config
+echo "UsePAM yes" | sudo tee -a /etc/ssh/sshd_config
+echo "PasswordAuthentication yes" | sudo tee -a /etc/ssh/sshd_config
+service sshd restart'
+
+# No pci pass through
+openstack server create --key-name teamkey --user-data $INIT_SCRIPT --user-data $CLOUD_INIT --image centos-1708 --flavor m1.large --nic net-id=a86706f9-9eed-4896-9667-68ea8bcbe63e c7-1708
+FIP=`openstack floating ip list --status DOWN -c "Floating IP Address" -f value |tail -n 1`
+openstack server add floating ip c7-1708 $FIP
+ssh centos@$FIP -i ~/.ssh/id_rsa.team
+# openstack server create --key-name teamkey --user-data $INIT_SCRIPT --image centos-1708 --flavor m1.large --nic net-id=a86706f9-9eed-4896-9667-68ea8bcbe63e c7-1708
+
+VMNAME=c7-1708-1
+FLAVOR_NAME=openvino
+DEVPROF_NAME=afaas_example_1
+openstack flavor create --vcpus 8 --ram 16384 --disk 160 \
+    --property "accel:device_profile=$DEVPROF_NAME" openvino
+openstack server create --user-data $INIT_SCRIPT --key-name teamkey --image ov2 --flavor $FLAVOR_NAME --nic net-id=a86706f9-9eed-4896-9667-68ea8bcbe63e $VMNAME
+openstack server create --user-data $INIT_SCRIPT --key-name teamkey --image centos-1708 --flavor $FLAVOR_NAME --nic net-id=a86706f9-9eed-4896-9667-68ea8bcbe63e $VMNAME
+
+openstack floating ip create public
+openstack floating ip list
+# openstack server add floating ip
+openstack server add floating ip c7-1708-1 172.24.4.216
+
+
+VMIP=`openstack server show $VMNAME -c addresses -f value |awk -F=" |," '{print $2}'`
+NETNS=`ip netns |grep qrouter | awk '{print $1}'`
+# remove leading whitespace characters
+VMIP="${VMIP#"${VMIP%%[![:space:]]*}"}"
+# remove trailing whitespace characters
+VMIP="${VMIP%"${VMIP##*[![:space:]]}"}"
+sudo ip netns exec $NETNS ssh root@$VMIP
+# in VM
+sudo yum install pciutils
+
+
+VM XML
+    <hostdev mode='subsystem' type='pci' managed='yes'>
+      <source>
+        <address domain='0x0000' bus='0x18' slot='0x00' function='0x0'/>
+      </source>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    </hostdev>
+
+
+vim nova/scheduler/utils.py
+vim nova/objects/request_spec.py
+
+sudo rmmod intel_fpga_pac_hssi intel_fpga_fme intel_fpga_afu fpga_mgr_mod intel_fpga_pci
+sudo /lib/modules/4.15.0-50-generic/kernel/drivers/fpga
+
+
+cat setupnetwork.sh
+#!/bin/bash
+
+# setup the external network, all trafic will routed to enp129s0f0
+ip addr add 172.24.4.1/24 dev br-ex
+ip link set br-ex up
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+iptables -t nat -A POSTROUTING -o enp129s0f0 -j MASQUERADE
+
+
+cat tunnel.sh
+# Socks tunnel, set proxy
+# ssh -D *:1088 -f -q -C -N cloud@192.168.0.156
+
+# Port Fowarding for xrdp
+ssh -L 192.168.0.156:3389:172.24.4.216:3389 localhost
+ssh -f -N -L 10.238.153.58:3390:172.24.4.216:3389 cloud@192.168.0.156
+
+cheduler/utils.py:def build_request_spec
+
+from nova.scheduler import utils as scheduler_utils
+from nova import utils
+request_spec = scheduler_utils.build_request_spec({}, instances)
+request_spec["instance_properties"]["flavor"]["extra_specs"]
+{u'accel:device_profile': u'afaas_example_1'}
+request_spec["instance_type"]["extra_specs"]
+instance.flavor.device_profile_name
+u'afaas_example_1'
+
+
+VIDEO_FILE="/home/centos/software/obama.mp4"
+VIDEO_FILE="rtsp://admin:Maxiaoha123@192.168.0.150/Streaming/Channels/3"
+
+echo <<< EOL /root/inference_engine_samples_build/intel64/Release/interactive_face_detection_demo -m=/opt/intel/openvino/deployment_tools/intel_models/face-detection-retail-0004/FP32/face-detection-retail-0004.xml -m_ag=/opt/intel/openvino/deployment_tools/intel_models/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml  -m_hp=/opt/intel/openvino/deployment_tools/intel_models/head-pose-estimation-adas-0001/FP32/head-pose-estimation-adas-0001.xml -m_em=/opt/intel/openvino/deployment_tools/intel_models/emotions-recognition-retail-0003/FP32/emotions-recognition-retail-0003.xml -i "$VIDEO_FILE" -d HETERO:FPGA,CPU -d_ag HETERO:FPGA,CPU -d_em HETERO:FPGA,CPU -d_hp HETERO:FPGA,CPU  -n_ag=1 -n_em=1 > run.ip.demo
+
+echo "aocl program acl0 /opt/intel/openvino/bitstreams/a10_dcp_bitstreams/2019R1_RC_FP11_ResNet_SqueezeNet_VGG.aocx" > bitstream.sh
+
+cat > set_evn.sh <<<"
+export OPAE_PLATFORM_ROOT=/home/centos/software
+export AOCL_BOARD_PACKAGE_ROOT=/home/centos/software/opencl/opencl_bsp
+export INTELFPGAOCLSDKROOT=/root/intelFPGA_pro/18.1/aclrte-linux64
+export CL_CONTEXT_COMPILER_MODE_INTELFPGA=3
+source $INTELFPGAOCLSDKROOT/init_opencl.sh
+source $AOCL_BOARD_PACKAGE_ROOT/linux64/libexec/setup_permissions.sh
+source /opt/intel/openvino/bin/setupvars.sh
+"
+
+for i in `systemctl list-units |grep "devstack@" | awk '{print $1}'`; do systemctl status $i; done
+
+# setup network
+cat setupnetwork.sh
+#!/bin/bash
+
+# setup the external network, all trafic will routed to enp129s0f0
+ip addr add 172.24.4.1/24 dev br-ex
+ip link set br-ex up
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+NIC=`ip link |grep "state UP" |awk -F ":| " '{print $3}'`
+iptables -t nat -A POSTROUTING -o $NIC -j MASQUERADE
