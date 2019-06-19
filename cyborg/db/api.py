@@ -51,6 +51,10 @@ class Connection(object):
         """Get requested device."""
 
     @abc.abstractmethod
+    def device_get_by_id(self, context, id):
+        """Get requested device by id."""
+
+    @abc.abstractmethod
     def device_list(self, context, limit=None, marker=None,
                     sort_key=None, sort_dir=None):
         """Get requested list of devices."""

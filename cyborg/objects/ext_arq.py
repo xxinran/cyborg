@@ -152,6 +152,9 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
                                '%s in use' % db_deployable.uuid)
         """
         driver_name = db_deployable.driver_name
+        if not driver_name:
+            device = self.dbapi.device_get_by_id(db_deployable.device_id)
+            driver_name = device["vendor"]
 
         query_filter = {"device_id": db_deployable.device_id}
         cpid_list = self.dbapi.control_path_get_by_filters(
@@ -217,14 +220,14 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
                                       db_deployable, bitstream_id)
             if ok:
                 placement_client.delete_traits_with_prefixes(
-                    devrp_uuid, ['CUSTOM_FUNCTION_ID'])
+                    devrp_uuid, ['CUSTOM_FPGA_INTEL_FUNCTION'])
                 # TODO DO NOT apply function trait if bitstream is private
                 if not function_id:
                     function_id = bitstream_md.get('accel:function_id')
                 if function_id:
                     function_id = function_id.upper().replace('-', '_-')
                     # TODO Validate this is a valid trait name
-                    trait_names = ['CUSTOM_FUNCTION_ID_' + function_id]
+                    trait_names = ['CUSTOM_FPGA_INTEL_FUNCTION_' + function_id]
                     placement_client.add_traits_to_rp(devrp_uuid,
                                                       trait_names)
             else:

@@ -158,13 +158,17 @@ class ConductorManager(object):
         LOG.info("Start differing devices.")
         # TODO:The placement report will be implemented here.
         # Use cpid.cpid_info to identify whether the device is the same.
+        stub_cpid_list = [driver_dev_obj.controlpath_id.cpid_info for
+                          driver_dev_obj in new_driver_device_list
+                          if driver_dev_obj.stub]
         new_cpid_list = [driver_dev_obj.controlpath_id.cpid_info for
                          driver_dev_obj in new_driver_device_list]
         old_cpid_list = [driver_dev_obj.controlpath_id.cpid_info for
                          driver_dev_obj in old_driver_device_list]
-        same = set(new_cpid_list) & set(old_cpid_list)
-        added = set(new_cpid_list) - same
-        deleted = set(old_cpid_list) - same
+
+        same = set(new_cpid_list) & set(old_cpid_list) - set(stub_cpid_list)
+        added = set(new_cpid_list) - same - set(stub_cpid_list)
+        deleted = set(old_cpid_list) - same - set(stub_cpid_list)
         for s in same:
             # get the driver_dev_obj, diff the driver_device layer
             new_driver_dev_obj = new_driver_device_list[new_cpid_list.index(s)]
@@ -324,11 +328,12 @@ class ConductorManager(object):
             new_driver_ah_obj = new_driver_ah_list[new_info_list.index(a)]
             new_driver_ah_obj.create(context, dep_id, cpid_id)
 
-    def _get_root_provider(self, host):
+    def _get_root_provider(self, context, host):
         try:
             prvioder = self.p_client.get(
                 "resource_providers?name=" + host).json()
             pr_uuid = prvioder["resource_providers"][0]["uuid"]
+            self.p_client._ensure_resource_provider(context, pr_uuid)
             return pr_uuid
         except IndexError:
             print("Error, provider '%s' can not be found"
@@ -383,7 +388,7 @@ class ConductorManager(object):
     def get_placement_needed_info_and_report(self, context, obj, host,
                                              parent_uuid=None):
         # hostname provider
-        root_provider = self._get_root_provider(host)
+        root_provider = self._get_root_provider(context, host)
         if obj.obj_name() == "DriverDevice":
             pr_name = obj.type + "_" + re.sub(r'\W', "_",
                                               obj.controlpath_id.cpid_info)

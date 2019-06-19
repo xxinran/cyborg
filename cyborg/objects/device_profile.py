@@ -86,7 +86,8 @@ class DeviceProfile(base.CyborgObject, object_base.VersionedObjectDictCompat):
 
     def destroy(self, context):
         """Delete a Device Profile from the DB."""
-        self.dbapi.device_profile_delete(context, self.name)
+        self.dbapi.device_profile_delete(context, self.uuid)
+        print("-" * 80 + "deleted")
         self.obj_reset_changes()
 
     @classmethod

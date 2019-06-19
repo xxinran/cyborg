@@ -174,4 +174,6 @@ class DeviceProfilesController(base.CyborgController):
         context = pecan.request.context
         obj_devprof = objects.DeviceProfile.get(context, name)
         # TODO Implement device profile delete via conductor
+        print("*" * 80 + "get obj_devprof")
         obj_devprof.destroy(context)
+        print("*" * 80 + "destroyed devprof")
