@@ -31,6 +31,7 @@ from cyborg.common import constants
 
 PCI_DEVICES_PATH = "/sys/bus/pci/devices"
 PCI_DEVICES_PATH_PATTERN = "/sys/bus/pci/devices/*"
+
 # TODO(shaohe) The KNOW_FPGAS can be configurable.
 KNOW_FPGAS = [("0x8086", "0x09c4")]
 
@@ -106,7 +107,6 @@ def all_pfs_have_vf():
     return filter(lambda p: glob.glob(os.path.join(p, "virtfn0")),
                   all_fpgas())
 
-
 def target_symbolic_map():
     maps = {}
     for f in glob.glob(os.path.join(SYS_FPGA, "*/device")):
@@ -126,7 +126,6 @@ def all_vfs_in_pf_fpgas(pf_path):
 def all_pf_fpgas():
     return filter(lambda p: glob.glob(os.path.join(p, "sriov_totalvfs")),
                   all_fpgas())
-
 
 def is_vf(path):
     return True if (
@@ -195,7 +194,7 @@ def fpga_device(path):
                 if key in DEVICE_FILE_HANDLER and callable(
                     DEVICE_FILE_HANDLER(key)):
                     infos[key] = DEVICE_FILE_HANDLER(key)(
-                        os.path.join(dirpath, filename))
+                    os.path.join(dirpath, filename))
                 else:
                     infos[key] = read_line(os.path.join(dirpath, filename))
     return infos

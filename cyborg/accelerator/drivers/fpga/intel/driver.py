@@ -20,6 +20,7 @@ Cyborg Intel FPGA driver implementation.
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import subprocess
+import re
 
 from cyborg.accelerator.drivers.fpga.base import FPGADriver
 from cyborg.accelerator.drivers.fpga.intel import sysinfo
@@ -34,6 +35,8 @@ class IntelFPGADriver(FPGADriver):
        Vedor should implement their specific drivers.
     """
     VENDOR = "intel"
+    PCI_BUS_PATERN = re.compile(
+        "^[0-9a-fA-F]{4,4}:[0-9a-fA-F]{2,2}:[0-9a-fA-F]{2,2}.[0-9a-fA-F]$")
 
     def __init__(self, *args, **kwargs):
         pass
@@ -78,9 +81,13 @@ class IntelFPGADriver(FPGADriver):
         #    bitstream type.
         cmd = ["sudo", "/usr/bin/fpgaconf"]
         # TODO Should driver do this or the agent?
-        controlpath_id['cpid_info'] = jsonutils.loads(
-            controlpath_id['cpid_info'])
-        bdf_dict = controlpath_id['cpid_info']
+        attach_json = controlpath_id['cpid_info']
+        if self.PCI_BUS_PATERN.findall(attach_json):
+            attach_dict = dict(zip(["domain", "bus", "device", "function"],
+                               attach_json.replace(".", ":").split(":")))
+        else:
+            attach_dict = jsonutils.loads(attach_json)
+        bdf_dict = attach_dict
         bdf = map(lambda x: bdf_dict[x], ["bus", "device", "function"])
         for i in zip(["--bus", "--device", "--function"], bdf):
             cmd.extend(i)
