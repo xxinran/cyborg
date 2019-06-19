@@ -327,11 +327,12 @@ class ConductorManager(object):
             new_driver_ah_obj = new_driver_ah_list[new_info_list.index(a)]
             new_driver_ah_obj.create(context, dep_id, cpid_id)
 
-    def _get_root_provider(self, host):
+    def _get_root_provider(self, context, host):
         try:
             prvioder = self.p_client.get(
                 "resource_providers?name=" + host).json()
             pr_uuid = prvioder["resource_providers"][0]["uuid"]
+            self.p_client._ensure_resource_provider(context, pr_uuid)
             return pr_uuid
         except IndexError:
             print("Error, provider '%s' can not be found"
@@ -386,7 +387,7 @@ class ConductorManager(object):
     def get_placement_needed_info_and_report(self, context, obj, host,
                                              parent_uuid=None):
         # hostname provider
-        root_provider = self._get_root_provider(host)
+        root_provider = self._get_root_provider(context, host)
         if obj.obj_name() == "DriverDevice":
             pr_name = obj.type + "_" + re.sub(r'\W', "_",
                                               obj.controlpath_id.cpid_info)
