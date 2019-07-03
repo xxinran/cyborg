@@ -148,7 +148,7 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         """
         driver_name = db_deployable.driver_name
         if not driver_name:
-            device = self.dbapi.device_get_by_id(db_deployable.device_id)
+            device = self.dbapi.device_get_by_id(context, db_deployable.device_id)
             driver_name = device["vendor"]
 
         query_filter = {"device_id": db_deployable.device_id}
