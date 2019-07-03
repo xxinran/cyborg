@@ -164,6 +164,7 @@ curl -s -H "$CTYPE" -H "$AUTH" POST -d "$BODY" $CYURL/device_profiles
 curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles/$DEVPROF_NAME | python -m json.tool
 UUID=`curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles/$DEVPROF_NAME |grep  'uuid": ".*?"' -oP |cut -d '"' -f 3`
 curl -s -H "$CTYPE" -H "$AUTH" $CYURL/device_profiles
+# delete device_profiles
 curl -s -H "$CTYPE" -H "$AUTH" -x DELETE $CYURL/device_profiles/$DEVPROF_NAME
 mysql -u root -p123 -e "use cyborg;
 delete FROM device_profiles where uuid=\"$DPUUID\""
