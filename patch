@@ -1,4 +1,5 @@
 # install FPGA driver
+# openvino support CentOS-7-x86_64-GenericCloud-1708.qcow2 well
 # wget https://github.com/OPAE/opae-sdk/releases/download/1.0.0-5/opae-intel-fpga-driver-1.0.0.x86_64.deb
 wget https://github.com/OPAE/opae-sdk/releases/download/1.3.0-2/opae-intel-fpga-driver-1.3.0-2.x86_64.deb
 sudo apt install -y gdebi
