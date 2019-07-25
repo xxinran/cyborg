@@ -211,3 +211,12 @@ class Deployable(base.CyborgObject, object_base.VersionedObjectDictCompat):
             return dep_obj_list[0]
         else:
             return None
+
+    @classmethod
+    def get_by_name(cls, context, name):
+        dep_filter = {'name': name}
+        dep_obj_list = Deployable.list(context, dep_filter)
+        if len(dep_obj_list) != 0:
+            return dep_obj_list[0]
+        else:
+            return None

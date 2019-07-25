@@ -24,7 +24,7 @@ import re
 from oslo_serialization import jsonutils
 
 from cyborg.accelerator.common import utils
-from cyborg.agent import rc_fields
+from cyborg.common import rc_fields
 from cyborg.objects.driver_objects import driver_deployable, driver_device,\
     driver_attach_handle, driver_controlpath_id, driver_attribute
 from cyborg.common import constants
@@ -48,13 +48,6 @@ DEVICE_FILE_MAP = {"vendor": "vendor",
                    "device": "product_id"}
 DEVICE_FILE_HANDLER = {}
 DEVICE_EXPOSED = ["vendor", "device"]
-
-RC_FPGA = rc_fields.ResourceClass.normalize_name(
-    rc_fields.ResourceClass.FPGA)
-
-RESOURCES = {
-    "fpga": RC_FPGA
-}
 
 
 def read_line(filename):
@@ -173,13 +166,30 @@ def get_afu_ids(name):
     )
 
 
-def get_traits(name, product_id):
+def get_region_ids(name):
+    return map(
+        read_line,
+        glob.glob(
+            os.path.join(
+                SYS_FPGA, name, "device/physfn/fpga",
+                "intel-fpga-dev.*", "intel-fpga-fme.*", "pr/interface_id")
+        )
+    )
+
+
+def get_traits(name, product_id, vf=True):
     # "region_id" not support at present, "CUSTOM_FPGA_REGION_INTEL_UUID"
     # "CUSTOM_PROGRAMMABLE" not support at present
-    traits = ["CUSTOM_FPGA_INTEL"]
-    for i in get_afu_ids(name):
-        l = "CUSTOM_FPGA_INTEL_FUNCTION_" + i.upper()
-        traits.append(l)
+    traits = []
+    if not vf:
+        traits.append("CUSTOM_FPGA_INTEL")
+    else:
+        for i in get_afu_ids(name):
+            l = "CUSTOM_FPGA_INTEL_FUNCTION_" + i.upper()
+            traits.append(l)
+        for i in get_region_ids(name):
+            l = "CUSTOM_FPGA_INTEL_REGION_" + i.upper()
+            traits.append(l)
     return {"traits": traits}
 
 
@@ -213,9 +223,9 @@ def fpga_tree():
         if names:
             name = names[0]
             fpga["stub"] = False
-            traits = get_traits(name, fpga["product_id"])
+            traits = get_traits(name, fpga["product_id"], vf)
             fpga.update(traits)
-        fpga["rc"] = RESOURCES["fpga"]
+        fpga["rc"] = constants.RESOURCES["FPGA"]
         return fpga
 
     devs = []
@@ -289,6 +299,7 @@ def _generate_attach_handle(fpga):
 
 def _generate_attribute_list(fpga):
     attr_list = []
+    index = 0
     for k, v in fpga.items():
         if k == "rc":
             driver_attr = driver_attribute.DriverAttribute()
@@ -299,7 +310,19 @@ def _generate_attribute_list(fpga):
             values = fpga.get(k, None)
             for val in values:
                 driver_attr = driver_attribute.DriverAttribute()
-                driver_attr.key = "trait" + str(values.index(val))
+                driver_attr.key = "trait" + str(index)
+                index = index + 1
                 driver_attr.value = val
                 attr_list.append(driver_attr)
+    if fpga.get("regions", None):
+        for vf in fpga["regions"]:
+            for k, v in vf.items():
+                if k == "traits":
+                    values = vf.get(k, None)
+                    for val in values:
+                        driver_attr = driver_attribute.DriverAttribute()
+                        driver_attr.key = "trait" + str(index)
+                        index = index + 1
+                        driver_attr.value = val
+                        attr_list.append(driver_attr)
     return attr_list

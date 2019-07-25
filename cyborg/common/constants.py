@@ -12,7 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from cyborg.common import rc_fields
 
 CONDUCTOR_TOPIC = 'cyborg-conductor'
 AGENT_TOPIC = 'cyborg-agent'
@@ -27,3 +27,10 @@ ARQ_STATES = (ARQ_INITIAL, ARQ_BOUND, ARQ_UNBOUND, ARQ_BIND_FAILED) = \
 
 # Device type
 DEVICE_TYPE = (DEVICE_GPU, DEVICE_FPGA, DEVICE_AICHIP, DEVICE_QAT)
+
+RC_FPGA = rc_fields.ResourceClass.normalize_name(
+    rc_fields.ResourceClass.FPGA)
+
+RESOURCES = {
+    "FPGA": RC_FPGA
+}
