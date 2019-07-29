@@ -537,7 +537,7 @@ class Connection(api.Connection):
                 raise exception.DeviceProfileNotFound(uuid=uuid)
 
     def deployable_create(self, context, values):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         if not values.get('uuid'):
             values['uuid'] = uuidutils.generate_uuid()
         if values.get('id'):
@@ -554,7 +554,7 @@ class Connection(api.Connection):
             return deployable
 
     def deployable_get(self, context, uuid):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         query = model_query(
             context,
             models.Deployable).filter_by(uuid=uuid)
@@ -564,7 +564,7 @@ class Connection(api.Connection):
             raise exception.DeployableNotFound(uuid=uuid)
 
     def deployable_get_by_host(self, context, host):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         query = model_query(
             context,
             models.Deployable).filter_by(host=host)
@@ -578,12 +578,12 @@ class Connection(api.Connection):
         return query.one()
 
     def deployable_list(self, context):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         query = model_query(context, models.Deployable)
         return query.all()
 
     def deployable_update(self, context, uuid, values):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         if 'uuid' in values:
             msg = _("Cannot overwrite UUID for an existing Deployable.")
             raise exception.InvalidParameterValue(err=msg)
@@ -610,7 +610,7 @@ class Connection(api.Connection):
 
     @oslo_db_api.retry_on_deadlock
     def deployable_delete(self, context, uuid):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         with _session_for_write():
             query = model_query(context, models.Deployable)
             query = add_identity_filter(query, uuid)
@@ -621,7 +621,7 @@ class Connection(api.Connection):
 
     def deployable_get_by_filters_with_attributes(self, context,
                                                   filters):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
 
         exact_match_filter_names = ['id', 'uuid', 'name',
                                     'parent_id', 'root_id',
@@ -657,7 +657,7 @@ class Connection(api.Connection):
         the sort_key. See deployable_get_by_filters_sort for
         more information.
         """
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         return self.deployable_get_by_filters_sort(context, filters,
                                                    limit=limit, marker=marker,
                                                    join_columns=join_columns,
@@ -717,7 +717,7 @@ class Connection(api.Connection):
         keys. Deleted deployables will be returned by default, unless
         there's a filter that says otherwise.
         """
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
 
         if limit == 0:
             return []
@@ -739,7 +739,7 @@ class Connection(api.Connection):
                                limit, marker, sort_key, sort_dir)
 
     def attribute_create(self, context, values):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         if not values.get('uuid'):
             values['uuid'] = uuidutils.generate_uuid()
         if values.get('id'):
@@ -757,7 +757,7 @@ class Connection(api.Connection):
             return attribute
 
     def attribute_get(self, context, uuid):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         query = model_query(
             context,
             models.Attribute).filter_by(uuid=uuid)
@@ -767,14 +767,14 @@ class Connection(api.Connection):
             raise exception.AttributeNotFound(uuid=uuid)
 
     def attribute_get_by_deployable_id(self, context, deployable_id):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         query = model_query(
             context,
             models.Attribute).filter_by(deployable_id=deployable_id)
         return query.all()
 
     def attribute_get_by_filter(self, context, filters):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         """Return attributes that matches the filters
         """
         query_prefix = model_query(context, models.Attribute)
@@ -802,7 +802,7 @@ class Connection(api.Connection):
     #     return query
 
     def attribute_update(self, context, uuid, key, value):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         return self._do_update_attribute(context, uuid, key, value)
 
     @oslo_db_api.retry_on_deadlock
@@ -820,7 +820,7 @@ class Connection(api.Connection):
         return ref
 
     def attribute_delete(self, context, uuid):
-        raise NotImplementedError()  # TODO
+        #raise NotImplementedError()  # TODO
         with _session_for_write():
             query = model_query(context, models.Attribute)
             query = add_identity_filter(query, uuid)
