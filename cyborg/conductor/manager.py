@@ -34,11 +34,11 @@ from cyborg.services.client import report as placement_report_client
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
-RC_FPGA = rc_fields.ResourceClass.normalize_name(
-    rc_fields.ResourceClass.FPGA)
+RC_QAT = rc_fields.ResourceClass.normalize_name(
+    rc_fields.ResourceClass.QAT)
 
 RESOURCES = {
-    "FPGA": RC_FPGA
+    "QAT": RC_QAT,
 }
 
 

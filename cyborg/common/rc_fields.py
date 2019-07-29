@@ -42,6 +42,7 @@ class ResourceClass(fields.StringField):
     VGPU = 'VGPU'
     VGPU_DISPLAY_HEAD = 'VGPU_DISPLAY_HEAD'
     FPGA = 'ACCELERATOR_FPGA'
+    QAT = 'ACCELERATOR_QAT'
 
     # The ordering here is relevant. If you must add a value, only
     # append.
