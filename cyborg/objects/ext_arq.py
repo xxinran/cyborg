@@ -59,6 +59,10 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         # deletions to the device profile do not affect running VMs.
         'device_profile_group': object_fields.DictOfStringsField(
             nullable=True),
+        # For bound ARQs, we keep the attach handle ID here so that
+        #    it is easy to deallocate on unbind or delete.
+        'attach_handle_id': object_fields.IntegerField(nullable=True),
+        'deployable_id': object_fields.IntegerField(nullable=True),
     }
 
     def create(self, context, device_profile_id=None):
@@ -171,6 +175,17 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         # TODO propagate agent errors to caller
         return True
 
+    def _allocate_attach_handle(self, context, deployable_id,
+                                attach_type='PCI'):
+        db_ah = self.dbapi.attach_handle_allocate(context, attach_type,
+                                                  deployable_id)
+        return db_ah
+
+    def _deallocate_attach_handle(self, context, ah_uuid):
+        values = {"in_use": False}
+        db_ah = self.dbapi.attach_handle_update(context, ah_uuid, values)
+        return db_ah
+
     def bind(self, context, hostname, devrp_uuid, instance_uuid):
         """ Given a device rp UUID, get the deployable UUID and
             an attach handle.
@@ -184,6 +199,7 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
 
         db_deployable = self.dbapi.deployable_get_by_rp_uuid(
             context, devrp_uuid)
+        self.deployable_id = db_deployable.id
         # TODO  Check that deployable.device.hostname matches param hostname
 
         bitstream_id = self.device_profile_group.get('accel:bitstream_id')
@@ -228,6 +244,14 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
             else:
                 arq.state = constants.ARQ_BIND_FAILED
 
+        if arq.state == constants.ARQ_BOUND:  # still on happy path
+            try:
+                db_ah = self._allocate_attach_handle(context,
+                                                     self.deployable_id)
+                self.attach_handle_id = db_ah.id
+            except:
+                LOG.error("Failed to allocate attach handle")
+                arq.state = constants.ARQ_BIND_FAILED
         # FIXME db_deployable.num_accelerators_in_use += 1
         # FIXME write deployable to db
         self.save(context)  # ARQ state changes get committed here
@@ -238,6 +262,8 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         arq.device_rp_uuid = ''
         arq.instance_uuid = ''
         arq.state = constants.ARQ_UNBOUND
+
+        self._deallocate_attach_handle(context, self.attach_handle_id)
 
         self.save(context)
 
@@ -256,7 +282,8 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         db_extarq['attach_handle_type'] = ''
         db_extarq['attach_handle_info'] = ''
         if db_extarq['state'] == 'Bound':  # TODO Do proper bind
-            db_ah = cls.dbapi.attach_handle_get_by_type(context, 'PCI')
+            db_ah = cls.dbapi.attach_handle_get_by_id(
+                context, db_extarq['attach_handle_id'])
             if db_ah is not None:
                 db_extarq['attach_handle_type'] = db_ah['attach_type']
                 db_extarq['attach_handle_info'] = db_ah['attach_info']
@@ -287,7 +314,7 @@ class ExtARQ(base.CyborgObject, object_base.VersionedObjectDictCompat):
         :param db_extarq: A DB model of the object
         :return: The object of the class with the database entity added
         """
-        cls._fill_obj_extarq_fields(context, db_extarq)
+        db_extarq = cls._fill_obj_extarq_fields(context, db_extarq)
 
         for field in extarq.fields:
             if field != 'arq':

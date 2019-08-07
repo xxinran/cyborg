@@ -421,8 +421,11 @@ class ConductorManager(object):
         traits = [i.value for i in attrs
                   if encodeutils.safe_encode(i.key).startswith("trait")]
         total = obj.num_accelerators
-        self.provider_report(context, pr_name, resource_class, traits,
+        rp_uuid = self.provider_report(context, pr_name, resource_class, traits,
                              total, parent_uuid)
+        dep_obj = Deployable.get_by_name(context, pr_name)
+        dep_obj["rp_uuid"] =  rp_uuid
+        dep_obj.save(context)
 
     def _gen_resource_inventory(self, name, total=0, max=1, min=1, step=1):
         result = {}

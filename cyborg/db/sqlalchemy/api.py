@@ -255,6 +255,39 @@ class Connection(api.Connection):
         return ref
 
     @oslo_db_api.retry_on_deadlock
+    def _do_allocate_attach_handle(self, context, query, values):
+        """Atomically get a set of attach handles that match the query
+           and mark one of those as in_use.
+        """
+        with _session_for_write() as session:
+            ref = query.with_lockmode('update').one()
+            ref.update(values)
+            # FIXME The in_use field doesn't get updated in db.
+            session.flush()
+        return ref
+
+    def attach_handle_allocate(self, context, attach_type, deployable_id):
+        """Allocate an attach handle with a given type and deployable.
+
+           To allocate is to get an unused resource and mark it as in_use.
+        """
+        query = model_query(context, models.AttachHandle). \
+            filter_by(attach_type=attach_type,
+                      deployable_id=deployable_id,
+                      in_use=False)
+        values = {"in_use": True}
+        try:
+            ah = self._do_allocate_attach_handle(context, query, values)
+        except NoResultFound:
+            msg = 'Matching attach_type {0} and deployable_id {1}'.format(
+                attach_type, deployable_id)
+            raise exception.ResourceNotFound(
+                resource='AttachHandle', msg=msg)
+        return ah
+
+    # NOTE: For deallocate, we use attach_handle_update()
+
+    @oslo_db_api.retry_on_deadlock
     def attach_handle_delete(self, context, uuid):
         with _session_for_write():
             query = model_query(context, models.AttachHandle)

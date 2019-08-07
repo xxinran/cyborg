@@ -44,8 +44,9 @@ class Deployable(base.CyborgObject, object_base.VersionedObjectDictCompat):
         # name of the deployable
         'num_accelerators': object_fields.IntegerField(nullable=False),
         # number of accelerators spawned by this deployable
-        'device_id': object_fields.IntegerField(nullable=False)
+        'device_id': object_fields.IntegerField(nullable=False),
         # Foreign key constrain to reference device table
+        'rp_uuid': object_fields.StringField(nullable=True)
     }
 
     def _get_parent_root_id(self, context):
@@ -113,6 +114,8 @@ class Deployable(base.CyborgObject, object_base.VersionedObjectDictCompat):
     def save(self, context):
         """Update a Deployable record in the DB."""
         updates = self.obj_get_changes()
+        updates.pop("uuid")
+        updates.pop("created_at")
         db_dep = self.dbapi.deployable_update(context, self.uuid, updates)
         self.obj_reset_changes()
         self._from_db_object(self, db_dep)
